@@ -1,38 +1,33 @@
 import { bench, run, summary } from "mitata";
 
-type F<I, O> = (x: I) => O;
+type F<X, Y> = (x: X) => Y;
 
-type Layer<Input, Output, NextInput, NextOutput> = (
-  input: Input,
-  next: (x: NextInput) => NextOutput
-) => Output;
+type Layer<X, Y, InnerX, InnerY> = (input: X, inner: F<InnerX, InnerY>) => Y;
 
-type Onion<EndInput, EndOutput, Input, Output> = {
-  layer<NextInput, NextOutput>(
-    layer: Layer<Input, Output, NextInput, NextOutput>
-  ): Onion<EndInput, EndOutput, NextInput, NextOutput>;
-  done(fn: F<Input, Output>): F<EndInput, EndOutput>;
+type Onion<ShellX, ShellY, X, Y> = {
+  layer<InnerX, InnerY>(
+    layer: Layer<X, Y, InnerX, InnerY>
+  ): Onion<ShellX, ShellY, InnerX, InnerY>;
+  done(core: F<X, Y>): F<ShellX, ShellY>;
 };
 
-function onion<EndInput, EndOutput, Input, Output>(
-  shell: Layer<EndInput, EndOutput, Input, Output>
-): Onion<EndInput, EndOutput, Input, Output> {
+function onion<ShellX, ShellY, X, Y>(
+  shell: Layer<ShellX, ShellY, X, Y>
+): Onion<ShellX, ShellY, X, Y> {
   return {
-    layer<NextInput, NextOutput>(
-      layer: Layer<Input, Output, NextInput, NextOutput>
-    ) {
-      return onion<EndInput, EndOutput, NextInput, NextOutput>(
-        (x, inner) => shell(x, (y) => layer(y, inner))
+    layer<InnerX, InnerY>(layer: Layer<X, Y, InnerX, InnerY>) {
+      return onion<ShellX, ShellY, InnerX, InnerY>((x, inner) =>
+        shell(x, (y) => layer(y, inner))
       );
     },
-    done(fn: F<Input, Output>): F<EndInput, EndOutput> {
-      return (x) => shell(x, fn);
+    done(core: F<X, Y>): F<ShellX, ShellY> {
+      return (x) => shell(x, core);
     },
   };
 }
 
-function base<Input, Output>(): Onion<Input, Output, Input, Output> {
-  return onion<Input, Output, Input, Output>((x, inner) => inner(x));
+function base<X, Y>(): Onion<X, Y, X, Y> {
+  return onion<X, Y, X, Y>((x, inner) => inner(x));
 }
 
 const toString: Layer<number, number, string, string> = (x, inner) => {
