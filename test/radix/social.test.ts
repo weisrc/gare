@@ -16,7 +16,7 @@ import {
   replyId,
   userId,
   invalid,
-} from "~fixture/radix/social-media";
+} from "~fixture/radix/social";
 
 test("all users", () => {
   expect(allUsers()).toEqual({

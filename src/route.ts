@@ -16,7 +16,7 @@ class Route<Path extends string, Input, Internal> {
     private readonly middlewares: Handler<Input & Internal, unknown>[] = []
   ) {}
 
-  sub<SubPath extends string>(subPath: SubPath) {
+  route<SubPath extends string>(subPath: SubPath) {
     type NewPath = `${Path}${SubPath}`;
 
     return new Route<NewPath, Input & Params<ExtractParams<SubPath>>, Internal>(
@@ -39,7 +39,7 @@ class Route<Path extends string, Input, Internal> {
     );
   }
 
-  on<Method extends HttpMethod, Output>(
+  endpoint<Method extends HttpMethod, Output>(
     method: Method,
     handler: Handler<Input & Internal, Output>
   ): Endpoint<Method, Path, Input, Output> {
@@ -52,38 +52,38 @@ class Route<Path extends string, Input, Internal> {
   }
 
   get<Output>(handler: Handler<Input & Internal, Output>) {
-    return this.on("GET", handler);
+    return this.endpoint("GET", handler);
   }
 
   post<Output>(handler: Handler<Input & Internal, Output>) {
-    return this.on("POST", handler);
+    return this.endpoint("POST", handler);
   }
 
   put<Output>(handler: Handler<Input & Internal, Output>) {
-    return this.on("PUT", handler);
+    return this.endpoint("PUT", handler);
   }
 
   delete<Output>(handler: Handler<Input & Internal, Output>) {
-    return this.on("DELETE", handler);
+    return this.endpoint("DELETE", handler);
   }
 
   patch<Output>(handler: Handler<Input & Internal, Output>) {
-    return this.on("PATCH", handler);
+    return this.endpoint("PATCH", handler);
   }
 
   head<Output>(handler: Handler<Input & Internal, Output>) {
-    return this.on("HEAD", handler);
+    return this.endpoint("HEAD", handler);
   }
 
   options<Output>(handler: Handler<Input & Internal, Output>) {
-    return this.on("OPTIONS", handler);
+    return this.endpoint("OPTIONS", handler);
   }
 
   connect<Output>(handler: Handler<Input & Internal, Output>) {
-    return this.on("CONNECT", handler);
+    return this.endpoint("CONNECT", handler);
   }
 
   trace<Output>(handler: Handler<Input & Internal, Output>) {
-    return this.on("TRACE", handler);
+    return this.endpoint("TRACE", handler);
   }
 }

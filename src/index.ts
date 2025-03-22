@@ -15,8 +15,8 @@ async function userAuth(): Promise<UserInfo> {
   };
 }
 
-const users = root.sub("/users").use(userAuth);
+const users = root.route("/users").use(userAuth);
 
-const getUser = users.sub("/*").get((c) => {
+const getUser = users.route("/*").get((c) => {
   c.userId
 });

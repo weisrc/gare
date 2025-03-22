@@ -12,7 +12,7 @@ import {
   onePost,
   oneReply,
   oneUser,
-} from "~fixture/radix/social-media";
+} from "~fixture/radix/social";
 
 summary(() => {
   bench("all users", allUsers);
