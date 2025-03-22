@@ -1,47 +1,69 @@
-import type { TrieNode } from "./types";
+import { assert } from "~/utils/assert";
+import type { Node } from "./types";
 
-export function merge<T>(alpha: TrieNode<T>, beta: TrieNode<T>): TrieNode<T> {
-  if (alpha.param && beta.param) {
-    if (alpha.param !== beta.param) {
-      throw new Error("Param names do not match");
-    }
-    if (alpha.greedy !== beta.greedy) {
-      throw new Error("Found conflicting param greediness");
-    }
+export function merge<T>(nodes: Node<T>[]): Node<T> {
+  const [first, ...rest] = nodes;
+  return rest.reduce((acc, node) => mergePair(acc, node), first);
+}
+
+function mergePair<T>(a: Node<T>, b: Node<T>): Node<T> {
+  assert(
+    a.prefix.length <= 1 && b.prefix.length <= 1,
+    "prefix length at most 1"
+  );
+
+  if (a.prefix.length !== b.prefix.length) {
+    const [one, zero] = a.prefix.length ? [a, b] : [b, a];
+    return {
+      ...zero,
+      children: mergeChildren({ [one.prefix]: one }, zero.children),
+    };
   }
 
-  if (alpha.value && beta.value && alpha.value !== beta.value) {
-    throw new Error("Found conflicting values");
+  if (a.prefix !== b.prefix) {
+    return {
+      prefix: "",
+      children: {
+        [a.prefix]: a,
+        [b.prefix]: b,
+      },
+    };
   }
 
-  const children: Record<string, TrieNode<T>> = {
-    ...alpha.children,
-    ...beta.children,
-  };
-
-  for (const key of Object.keys(children)) {
-    children[key] = merge(
-      alpha.children?.[key] ?? {},
-      beta.children?.[key] ?? {}
-    );
-  }
+  assert(
+    !a.param || !b.param || a.param === b.param,
+    "param names match if set"
+  );
+  assert(
+    !a.param || !b.param || a.greedy === b.greedy,
+    "param greediness match if set"
+  );
+  assert(!a.value || !b.value || a.value === b.value, "values match if set");
 
   return {
-    param: alpha.param ?? beta.param,
-    greedy: alpha.greedy ?? beta.greedy,
-    value: alpha.value ?? beta.value,
-    children,
+    prefix: a.prefix,
+    param: a.param ?? b.param,
+    greedy: a.greedy ?? b.greedy,
+    value: a.value ?? b.value,
+    children: mergeChildren(a.children, b.children),
   };
 }
 
-export function mergeAll<T>(nodes: TrieNode<T>[]): TrieNode<T> {
-  if (nodes.length === 1) {
-    return nodes[0];
+function mergeChildren<T>(
+  a?: Record<string, Node<T>>,
+  b?: Record<string, Node<T>>
+): Record<string, Node<T>> {
+  const children: Record<string, Node<T>> = {
+    ...a,
+    ...b,
+  };
+
+  for (const key in children) {
+    children[key] = mergePair(
+      a?.[key] ?? { prefix: key },
+      b?.[key] ?? { prefix: key }
+    );
   }
 
-  const mid = Math.floor(nodes.length / 2);
-  const left = mergeAll(nodes.slice(0, mid));
-  const right = mergeAll(nodes.slice(mid));
-
-  return merge(left, right);
+  return children;
 }

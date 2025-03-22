@@ -1,43 +1,43 @@
-import type { RadixNode } from "./types";
+import type { Node } from "./types";
 
-type SearchResult<T> = {
+export type SearchResult<T> = {
   value?: T;
   params: Record<string, string>;
 };
 
 export function search<T>(
-  node: RadixNode<T>,
+  node: Node<T>,
   target: string,
-  offset: number,
+  targetOffset: number,
+  prefixOffset: number,
   params: SearchResult<T>["params"]
 ): SearchResult<T> | undefined {
-  const { prefix, param: wildcard, greedy, value, children } = node;
+  const { prefix, param, greedy, value, children } = node;
 
-  for (let i = 0; i < prefix.length; i++) {
-    if (prefix[i] !== target[offset + i]) {
+  if (prefix.length > 10) {
+    if (prefix !== target.slice(targetOffset, targetOffset + prefix.length)) {
       return;
+    }
+  } else {
+    for (let i = prefixOffset; i < prefix.length; i++) {
+      if (prefix.charCodeAt(i) !== target.charCodeAt(targetOffset + i)) {
+        return;
+      }
     }
   }
 
-  const nextOffset = offset + prefix.length;
+  const nextOffset = targetOffset + prefix.length;
 
-  if (wildcard !== undefined) {
+  if (param !== undefined) {
     if (children) {
-      for (let j = nextOffset; j < target.length; j++) {
-        const nextNode = children[target[j]];
+      for (let i = nextOffset; i < target.length; i++) {
+        const nextNode = children[target[i]];
         if (nextNode) {
-          const found = search(
-            nextNode,
-            target,
-            j + 1,
-            wildcard
-              ? {
-                  ...params,
-                  [wildcard]: target.slice(nextOffset, j),
-                }
-              : params
-          );
+          const found = search(nextNode, target, i, 1, params);
           if (found) {
+            if (param && i > nextOffset) {
+              found.params[param] = target.slice(nextOffset, i);
+            }
             return found;
           }
           if (!greedy) {
@@ -47,15 +47,11 @@ export function search<T>(
       }
     }
 
-    return {
-      value,
-      params: wildcard
-        ? {
-            ...params,
-            [wildcard]: target.slice(nextOffset),
-          }
-        : params,
-    };
+    if (param) {
+      params[param] = target.slice(nextOffset);
+    }
+
+    return { value, params };
   }
 
   if (nextOffset === target.length) {
@@ -69,6 +65,6 @@ export function search<T>(
   const nextNode = children[target[nextOffset]];
 
   if (nextNode) {
-    return search(nextNode, target, nextOffset + 1, params);
+    return search(nextNode, target, nextOffset, 1, params);
   }
 }

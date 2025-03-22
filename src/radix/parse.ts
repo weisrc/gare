@@ -1,61 +1,77 @@
-import type { TrieNode } from "./types";
+import {
+  type Parser,
+  and,
+  char,
+  end,
+  join,
+  many,
+  map,
+  or,
+  regex,
+} from "../utils/parser";
+import type { Node } from "./types";
 
-export function parse<T>(path: string, value: T): TrieNode<T> {
-  const root: TrieNode<T> = {};
+const paramFirstChar = regex(/[a-zA-Z_]/);
+const paramChar = regex(/[a-zA-Z0-9_]/);
+const urlChar = regex(/[a-zA-Z0-9\-\._~/]/);
+const star = char("*");
+const openBrace = char("{");
+const closeBrace = char("}");
 
-  let node = root;
-  let isInParam = false;
-  let isAfterParam = false;
+const paramEnd = or(
+  map(closeBrace, () => false),
+  map(and(star, closeBrace), () => true)
+);
 
-  for (const char of path) {
-    switch (char) {
-      case "{":
-        if (isInParam) {
-          throw new Error("Param is already opened");
+const param = map(
+  and(
+    openBrace,
+    or(
+      and(join(and(paramFirstChar, join(many(paramChar)))), paramEnd),
+      map(paramEnd, (param) => ["", param])
+    )
+  ),
+  ([_, [name, greedy]]) => ({ name, greedy })
+);
+
+const node = or(
+  map(and(urlChar, param), ([char, param]) => ({
+    char,
+    param,
+  })),
+  or(
+    map(urlChar, (char) => ({ char, param: undefined })),
+    map(param, (param) => ({ char: "", param }))
+  )
+);
+
+export function parse<T>(raw: string, value: T) {
+  const tree: Parser<Node<T>> = (raw, i) => {
+    const inner = map(and(node, or(tree, end)), ([parent, child]) => {
+      const out: Node<T> = {
+        prefix: parent.char,
+        greedy: parent.param?.greedy,
+        param: parent.param?.name,
+        value: child ? undefined : value,
+      } as Node<T>;
+
+      if (child) {
+        if (!child.prefix) {
+          throw new Error("cannot have adjacent params");
         }
+        out.children = { [child.prefix]: child };
+      }
 
-        if (isAfterParam) {
-          throw new Error("Param is too close");
-        }
-        node.param = "";
-        isInParam = true;
-        break;
-      case "}":
-        if (!isInParam) {
-          throw new Error("Param is not opened");
-        }
-        isInParam = false;
-        isAfterParam = true;
-        break;
-      default:
-        if (isInParam) {
-          if (node.greedy) {
-            throw new Error("* must be at the end of param");
-          }
+      return out;
+    });
+    return inner(raw, i);
+  };
 
-          if (char === "*") {
-            if (node.param === "") {
-              throw new Error("Param name must be provided");
-            }
-            node.greedy = true;
-          } else {
-            node.param += char;
-          }
-        } else {
-          node.children = {};
-          node.children[char] = {};
-          node = node.children[char];
-          isAfterParam = false;
-        }
-        break;
-    }
+  const result = tree(raw, 0);
+
+  if (!result.ok) {
+    throw new Error(result.error);
   }
 
-  node.value = value;
-
-  if (isInParam) {
-    throw new Error("Param is not closed");
-  }
-
-  return root;
+  return result.value;
 }

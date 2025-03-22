@@ -1,33 +1,28 @@
-import type { RadixNode, TrieNode } from "./types";
+import type { Node } from "./types";
 
-export function compress<T>(node: TrieNode<T>): RadixNode<T> {
+export function compress<T>(node: Node<T>): Node<T> {
   if (!node.children) {
-    return {
-      ...node,
-      prefix: "",
-      children: undefined,
-    };
+    return node;
   }
 
-  if (Object.keys(node.children).length === 1 && node.param === undefined && !node.value) {
-    const key = Object.keys(node.children)[0];
-    const child = compress(node.children[key]);
+  const entries = Object.entries(node.children);
 
+  if (entries.length === 1 && node.param === undefined && !node.value) {
+    const child = compress(entries[0][1]);
     return {
       ...child,
-      prefix: key + child.prefix,
+      prefix: node.prefix + child.prefix,
     };
   }
 
-  const children: Record<string, RadixNode<T>> = {};
+  const children: Record<string, Node<T>> = {};
 
-  for (const [key, child] of Object.entries(node.children)) {
+  for (const [key, child] of entries) {
     children[key] = compress(child);
   }
 
   return {
     ...node,
-    prefix: "",
     children,
   };
 }
