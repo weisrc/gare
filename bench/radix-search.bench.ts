@@ -1,4 +1,4 @@
-import { bench, boxplot, run, summary } from "mitata";
+import { bench, run, summary } from "mitata";
 import {
   allComments,
   allPosts,
@@ -29,4 +29,4 @@ summary(() => {
   bench("invalid", invalid);
 });
 
-await run();
+await run()
