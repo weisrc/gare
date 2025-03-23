@@ -6,21 +6,43 @@ export type ExtractParams<T extends string> =
     : [];
 
 export type Params<T extends string[]> = {
-  [k in T[number]]: string;
+  params: {
+    [k in T[number]]: string;
+  };
 };
 
-export type Handler<Context = any, T = any> = (c: Context) => T | Promise<T>;
+export type GareContext = {
+  req: Request;
+};
 
-export type HttpMethod =
-  | "CONNECT"
-  | "DELETE"
-  | "GET"
-  | "HEAD"
-  | "OPTIONS"
-  | "PATCH"
-  | "POST"
-  | "PUT"
-  | "TRACE";
+export type GareOutput = Response;
+
+export type Fun<X, Y> = (x: X) => Y;
+
+export type Layer<X, Y, InnerX, InnerY> = (
+  x: X,
+  inner: Fun<InnerX, InnerY>
+) => Y;
+
+const PUBLIC = Symbol("public");
+
+export type Public = {
+  [PUBLIC]?: never;
+};
+
+export const METHODS = [
+  "CONNECT",
+  "DELETE",
+  "GET",
+  "HEAD",
+  "OPTIONS",
+  "PATCH",
+  "POST",
+  "PUT",
+  "TRACE",
+] as const;
+
+export type HttpMethod = (typeof METHODS)[number];
 
 export type Endpoint<
   Method extends HttpMethod = HttpMethod,
@@ -29,7 +51,7 @@ export type Endpoint<
   Output = any
 > = {
   readonly path: Path;
-  readonly middlewares: Handler[];
   readonly method: Method;
-  readonly handler: Handler;
+  readonly call: Fun<GareContext, GareOutput>;
+  readonly public: Fun<Input, Output>;
 };

@@ -1,22 +1,70 @@
 import { route } from "./route";
-import type { Endpoint } from "./types";
+import type { GareContext, GareOutput, Layer, Public } from "./types";
 
-const root = route("/api");
-
-type UserInfo = {
-  userId: string;
-  userName: string;
+type UserData = {
+  user: string;
 };
 
-async function userAuth(): Promise<UserInfo> {
+const addUser: Layer<
+  GareContext,
+  GareOutput,
+  GareContext & UserData,
+  GareOutput
+> = (input, inner) => {
+  const out = inner({
+    ...input,
+    user: "123",
+  });
+
+  return out;
+};
+
+type AuthData = {
+  authSuccess: boolean;
+};
+
+const authUser: Layer<UserData, GareOutput, AuthData, GareOutput> = (
+  input,
+  inner
+) => {
+  if (input.user === "123") {
+    return inner({
+      ...input,
+      authSuccess: true,
+    });
+  }
+
+  throw new Error("Unauthorized");
+};
+
+const errorCatch: Layer<unknown, GareOutput, unknown, GareOutput> = (
+  input,
+  inner
+) => {
+  try {
+    return inner(input);
+  } catch (e) {
+    return inner(input);
+  }
+};
+
+const root = route("/api{asdf}")
+  .route("/another/{id}")
+  .layer(addUser)
+  .layer(authUser)
+  .layer(addUser)
+  .layer(errorCatch);
+
+const hello = root.endpoint("POST", (c) => {
   return {
-    userId: "123",
-    userName: "John Doe",
-  };
-}
+    status: 200,
+    body: c.user,
+  } as any;
+});
 
-const users = root.route("/users").use(userAuth);
-
-const getUser = users.route("/*").get((c) => {
-  c.userId
+hello.public({
+  params: {
+    asdf: "123",
+    id: "456",
+  },
 });
