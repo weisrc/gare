@@ -5,12 +5,10 @@ type UserData = {
   user: string;
 };
 
-const addUser: Layer<
-  GareContext,
-  GareOutput,
-  GareContext & UserData,
-  GareOutput
-> = (input, inner) => {
+const addUser: Public<Layer<GareContext, GareOutput, UserData, GareOutput>> = (
+  input,
+  inner
+) => {
   const out = inner({
     ...input,
     user: "123",
@@ -62,7 +60,8 @@ const hello = root.endpoint("POST", (c) => {
   } as any;
 });
 
-hello.public({
+const test = hello.public({
+  user: "123",
   params: {
     asdf: "123",
     id: "456",

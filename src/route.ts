@@ -34,7 +34,7 @@ class Route<Path extends string, PublicX, X, Y> {
   }
 
   layer<InnerX, InnerY>(
-    layer: Layer<PublicX & X, Y, InnerX, InnerY> & Public
+    layer: Public<Layer<PublicX & X, Y, InnerX, InnerY>>
   ): Route<Path, PublicX & InnerX, X, InnerY>;
 
   layer<InnerX, InnerY>(

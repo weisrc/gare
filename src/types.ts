@@ -26,7 +26,7 @@ export type Layer<X, Y, InnerX, InnerY> = (
 
 const PUBLIC = Symbol("public");
 
-export type Public = {
+export type Public<T> = T & {
   [PUBLIC]?: never;
 };
 
