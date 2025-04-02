@@ -140,3 +140,7 @@ test("greedy nameless param", () => {
     value: 0,
   });
 });
+
+test("cannot have adjacent params", () => {
+  expect(() => parse("{a}{c}asdf{b}asdfasdf", 0)).toThrow("cannot have adjacent pardams");
+});

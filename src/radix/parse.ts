@@ -1,76 +1,91 @@
 import {
-  type Parser,
-  and,
-  char,
-  end,
-  join,
-  many,
-  map,
-  or,
-  regex,
+  Parser,
+  parserError,
+  parserOk,
+  type ParserResult,
+  type ParserType,
 } from "../utils/parser";
 import type { Node } from "./types";
 
-const paramFirstChar = regex(/[a-zA-Z_]/);
-const paramChar = regex(/[a-zA-Z0-9_]/);
-const urlChar = regex(/[a-zA-Z0-9\-\._~/]/);
-const star = char("*");
-const openBrace = char("{");
-const closeBrace = char("}");
+const paramFirstChar = Parser.regex(/[a-zA-Z_]/);
+const paramChar = Parser.regex(/[a-zA-Z0-9_]/);
+const urlChar = Parser.regex(/[a-zA-Z0-9\-\._~/]/);
+const star = Parser.char("*");
+const openBrace = Parser.char("{");
+const closeBrace = Parser.char("}");
 
-const paramEnd = or(
-  map(closeBrace, () => false),
-  map(and(star, closeBrace), () => true)
-);
+const paramEnd = star.value(true).otherwise(false).endsWith(closeBrace);
 
-const param = map(
-  and(
-    openBrace,
-    or(
-      and(join(and(paramFirstChar, join(many(paramChar)))), paramEnd),
-      map(paramEnd, (param) => ["", param])
-    )
-  ),
-  ([_, [name, greedy]]) => ({ name, greedy })
-);
+const param = openBrace
+  .then(
+    paramFirstChar
+      .and(paramChar.repeated().joined())
+      .joined()
+      .and(paramEnd)
+      .or(paramEnd.map((param) => ["", param] as const))
+  )
+  .map(([name, greedy]) => ({ name, greedy }));
 
-const node = or(
-  map(and(urlChar, param), ([char, param]) => ({
+const firstNode = urlChar
+  .otherwise("")
+  .and(param.otherwise(undefined))
+  .map(([char, param]) => ({
     char,
     param,
-  })),
-  or(
-    map(urlChar, (char) => ({ char, param: undefined })),
-    map(param, (param) => ({ char: "", param }))
-  )
-);
+  }));
 
-export function parse<T>(raw: string, value: T) {
-  const tree: Parser<Node<T>> = (raw, i) => {
-    const inner = map(and(node, or(tree, end)), ([parent, child]) => {
-      const out: Node<T> = {
-        prefix: parent.char,
-        greedy: parent.param?.greedy,
-        param: parent.param?.name,
-        value: child ? undefined : value,
-      } as Node<T>;
+const node = urlChar
+  .and(param.otherwise(undefined))
+  .map(([char, param]) => ({ char, param }));
 
-      if (child) {
-        if (!child.prefix) {
-          throw new Error("cannot have adjacent params");
-        }
-        out.children = { [child.prefix]: child };
-      }
+const oldNode = urlChar
+  .and(param)
+  .map(([char, param]) => ({
+    char,
+    param,
+  }))
+  .or(
+    urlChar
+      .map((char) => ({ char, param: undefined }))
+      .or(param.map((param) => ({ char: "", param })))
+  );
 
-      return out;
-    });
-    return inner(raw, i);
+type ParsedNode = ParserType<typeof oldNode>;
+
+function nodeMapper<T>(
+  value: T,
+  parent: ParsedNode,
+  child: Node<T> | undefined
+): ParserResult<Node<T>> {
+  const node: Node<T> = {
+    prefix: parent.char,
+    greedy: parent.param?.greedy,
+    param: parent.param?.name,
+    value: child ? undefined : value,
   };
 
-  const result = tree(raw, 0);
+  if (child) {
+    if (!child.prefix) {
+      return parserError("cannot have adjacent params", 0);
+    }
+    node.children = { [child.prefix]: child };
+  }
+
+  return parserOk(node, 0);
+}
+
+export function parse<T>(raw: string, value: T) {
+  const tree: Parser<Node<T>> = new Parser((raw, i) => {
+    const inner = oldNode
+      .and(tree.or(Parser.end))
+      .tryMap(([parent, child]) => nodeMapper(value, parent, child));
+    return inner.run(raw, i);
+  });
+
+  const result = tree.run(raw, 0);
 
   if (!result.ok) {
-    throw new Error(result.error);
+    throw new Error(result.error + " at " + result.offset);
   }
 
   return result.value;
