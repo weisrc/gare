@@ -119,10 +119,6 @@ test("greedy param only", () => {
   });
 });
 
-test("throw adjacent params error", () => {
-  expect(() => parse("{a}{b}", 0)).toThrow("cannot have adjacent params");
-});
-
 test("nameless param", () => {
   expect(parse("{}", 0)).toEqual({
     prefix: "",
@@ -141,6 +137,14 @@ test("greedy nameless param", () => {
   });
 });
 
-test("cannot have adjacent params", () => {
-  expect(() => parse("{a}{c}asdf{b}asdfasdf", 0)).toThrow("cannot have adjacent pardams");
+test("throw adjacent params error", () => {
+  expect(() => parse("{a}{b}", 0)).toThrow("unexpected '{': {a} HERE {b}");
+});
+
+test("throw invalid param name", () => {
+  expect(() => parse("{a!}", 0)).toThrow("unexpected '!': {a HERE !}");
+});
+
+test("throw invalid url char", () => {
+  expect(() => parse("a!", 0)).toThrow("unexpected '!': a HERE !");
 });

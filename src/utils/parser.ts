@@ -46,8 +46,7 @@ export class Parser<T> {
   or<U>(other: Parser<U>) {
     return new Parser<T | U>((raw, offset) => {
       const aResult = this.run(raw, offset);
-      if (aResult.ok) return aResult;
-      return other.run(raw, offset);
+      return aResult.ok ? aResult : other.run(raw, offset);
     });
   }
 
@@ -57,16 +56,14 @@ export class Parser<T> {
     });
   }
 
-  tryMap<U>(f: (t: T) => ParserResult<U>): Parser<U> {
-    return this.mapAll((res) => {
-      return res.ok ? { ...f(res.value), offset: res.offset } : res;
-    });
-  }
-
   map<U>(f: (t: T) => U): Parser<U> {
     return this.mapAll((res) => {
       return res.ok ? parserOk(f(res.value), res.offset) : res;
     });
+  }
+
+  value<U>(value: U): Parser<U> {
+    return this.map(() => value);
   }
 
   mapError(f: (error: string) => string): Parser<T> {
@@ -75,8 +72,10 @@ export class Parser<T> {
     });
   }
 
-  value<U>(value: U): Parser<U> {
-    return this.map(() => value);
+  error(message: string): Parser<T> {
+    return this.mapAll((res) => {
+      return res.ok ? res : parserError(message, res.offset);
+    });
   }
 
   repeated() {

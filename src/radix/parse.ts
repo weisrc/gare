@@ -1,3 +1,4 @@
+import { assert } from "~/utils/assert";
 import {
   Parser,
   parserError,
@@ -38,25 +39,13 @@ const node = urlChar
   .and(param.otherwise(undefined))
   .map(([char, param]) => ({ char, param }));
 
-const oldNode = urlChar
-  .and(param)
-  .map(([char, param]) => ({
-    char,
-    param,
-  }))
-  .or(
-    urlChar
-      .map((char) => ({ char, param: undefined }))
-      .or(param.map((param) => ({ char: "", param })))
-  );
+type ParsedNode = ParserType<typeof node>;
 
-type ParsedNode = ParserType<typeof oldNode>;
-
-function nodeMapper<T>(
+function intoNode<T>(
   value: T,
   parent: ParsedNode,
   child: Node<T> | undefined
-): ParserResult<Node<T>> {
+): Node<T> {
   const node: Node<T> = {
     prefix: parent.char,
     greedy: parent.param?.greedy,
@@ -65,27 +54,36 @@ function nodeMapper<T>(
   };
 
   if (child) {
-    if (!child.prefix) {
-      return parserError("cannot have adjacent params", 0);
-    }
+    assert(child.prefix, "all nodes except root have a prefix");
     node.children = { [child.prefix]: child };
   }
 
-  return parserOk(node, 0);
+  return node;
 }
 
 export function parse<T>(raw: string, value: T) {
   const tree: Parser<Node<T>> = new Parser((raw, i) => {
-    const inner = oldNode
-      .and(tree.or(Parser.end))
-      .tryMap(([parent, child]) => nodeMapper(value, parent, child));
+    const inner = node
+      .and(Parser.end.or(tree))
+      .map(([parent, child]) => intoNode(value, parent, child));
     return inner.run(raw, i);
   });
 
-  const result = tree.run(raw, 0);
+  const root = firstNode
+    .and(Parser.end.or(tree))
+    .map(([parent, child]) => intoNode(value, parent, child));
+
+  const result = root.run(raw, 0);
 
   if (!result.ok) {
-    throw new Error(result.error + " at " + result.offset);
+    const message =
+      result.error +
+      ": " +
+      raw.slice(0, result.offset) +
+      " HERE " +
+      raw.slice(result.offset);
+
+    throw new Error(message);
   }
 
   return result.value;
