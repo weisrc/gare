@@ -1,11 +1,5 @@
 import { assert } from "~/utils/assert";
-import {
-  Parser,
-  parserError,
-  parserOk,
-  type ParserResult,
-  type ParserType,
-} from "../utils/parser";
+import { Parser, type ParserType } from "../utils/parser";
 import type { Node } from "./types";
 
 const paramFirstChar = Parser.regex(/[a-zA-Z_]/);
